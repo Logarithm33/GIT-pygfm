@@ -43,6 +43,23 @@
 - OFA 数据集格式（去重文本嵌入+按索引查找）为项目特有逻辑
 - 可选用 pygfm `BertTextEncoder` 做备用文本编码，但缓存数据已含预计算嵌入
 
+### Step 4 — Pretraining Data (Task-Tree Construction)
+
+| pygfm 模块 | 用途 |
+|-----------|------|
+| _本步未直接使用 pygfm_ | VirtualNodeAugmentor / unified_data 为 GIT 特有算法核心 |
+
+**未使用 pygfm 的原因**：
+- `VirtualNodeAugmentor` 是 GIT 论文的核心创新——Task-Tree 构建。它根据不同任务类型（node/edge/graph）向图中注入虚拟任务节点，pygfm 无此概念
+- `preprocess` / `postprocess` 处理 GIT 特有的索引-文本嵌入分离存储格式
+- `preprocess_data_dict` 实现多数据集全局索引唯一化，为 GIT 特有
+- 数据集注册表 (`pretrain_datasets`, `domain2task`, `dataset2domain`) 定义了预训练的多域组合
+
+**与 GIT 原版异同**：
+- VirtualNodeAugmentor 逻辑完全一致——保留 GIT 核心算法
+- `preprocess` 中分子数据处理从 `MolOFADataset.data` 提取 `pre_edge_index` 和 `node_embs`
+- 移除未使用的 `pandas`、`random` 顶层导入，改为惰性导入
+
 ### Step 1 — Utils
 
 | pygfm 模块 | 用途 |
@@ -79,9 +96,14 @@ main/
 │   ├── edge.py
 │   ├── link_pred.py
 │   └── graph.py
-└── config/
-    ├── base.yaml
-    ├── base_zero_shot.yaml
-    ├── zero_shot.yaml
-    └── in_context.yaml
+├── config/
+│   ├── base.yaml
+│   ├── base_zero_shot.yaml
+│   ├── zero_shot.yaml
+│   └── in_context.yaml
+└── tests/
+    ├── test_step1_utils.py          # Step 1: 19 tests
+    ├── test_step2_model.py          # Step 2: 20 tests
+    ├── test_step3_data.py           # Step 3: 13 tests
+    └── test_step4_pretrain_data.py  # Step 4: 18 tests
 ```
