@@ -1,0 +1,15 @@
+# Python bytecode / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+
+# Trained model checkpoints
+model/pretrain_model/
+model/sft_model/
+model/finetune_model/
+
+# W&B experiment logs
+wandb/
+
+tests/
