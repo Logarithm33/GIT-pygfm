@@ -70,8 +70,6 @@ GITPrePromptModel  GITEncoder  GITDownPrompt*Model
 | `pretrain.py` | 改写 | `Encoder` → `GITEncoder`；`PretrainModel` → `GITPrePromptModel`；wandb 可选 |
 | `sft.py` | 改写 | `Encoder` → `GITEncoder`；wandb 可选；修复原版缩进错误 |
 | `finetune.py` | 改写 | `TaskModel` → `GITDownPrompt*Model`；wandb 可选；yaml 惰性导入 |
-| `tests/*.py` | 新编 (8个) | — |
-
 ### 统计
 
 | 类别 | 数量 | 文件 |
@@ -79,7 +77,7 @@ GITPrePromptModel  GITEncoder  GITDownPrompt*Model
 | 复制 | 6 | 4 YAML + args + logger |
 | 搬运 | 9 | eval, utils, loader, split, finetune_data, ofa_dataset, pretrain_data, task×4 |
 | 改写 | 6 | encoder, decoders, git_pretrain, git_downstream, pretrain, sft, finetune |
-| 新编 | 13 | .gitignore, README, 5 `__init__.py`, 8 tests |
+| 新编 | 5 | .gitignore, README, 5 `__init__.py` |
 
 ## 项目结构
 
@@ -123,28 +121,5 @@ main/
 │   ├── zero_shot.yaml
 │   └── in_context.yaml
 └── tests/
-    ├── test_step1_utils.py
-    ├── test_step2_model.py
-    ├── test_step3_data.py
-    ├── test_step4_pretrain_data.py
-    ├── test_step5_pretrain_model.py
-    ├── test_step7_downstream_model.py
-    ├── test_step8_task_functions.py
-    ├── test_step9_sft_entry.py
-    └── test_step10_finetune_entry.py
 ```
 
-## 测试覆盖
-
-| 测试文件 | 覆盖对象 | 测试数 |
-|---------|---------|--------|
-| `test_step1_utils.py` | args, eval, logger, early_stop, utils | 19 |
-| `test_step2_model.py` | GITEncoder, NonParamPooling, InnerProductDecoder, MLP | 20 |
-| `test_step3_data.py` | registries, OFA base, loaders, temporal helpers | 13 |
-| `test_step4_pretrain_data.py` | VirtualNodeAugmentor, preprocess, unified_data | 18 |
-| `test_step5_pretrain_model.py` | GITPrePromptModel, EMA, 3 losses, gradient flow | 13 |
-| `test_step7_downstream_model.py` | DownPromptNode/Graph, l2norm, get_prototypes, proto_classify | 18 |
-| `test_step8_task_functions.py` | sft/ft/eval for node/edge/link_pred/graph | 18 |
-| `test_step9_sft_entry.py` | sft.py module, get_sft dispatch, imports | 5 |
-| `test_step10_finetune_entry.py` | finetune.py module, get_ft/get_eval dispatch | 9 |
-| **合计** | | **133** |
