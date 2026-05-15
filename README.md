@@ -43,6 +43,22 @@
 - OFA 数据集格式（去重文本嵌入+按索引查找）为项目特有逻辑
 - 可选用 pygfm `BertTextEncoder` 做备用文本编码，但缓存数据已含预计算嵌入
 
+### Step 7 — Downstream Models (GITDownPrompt)
+
+| pygfm 模块 | 用途 | 替代了 GIT 原版什么 |
+|-----------|------|-------------------|
+| `pygfm.public.model_bases.GFMDownPromptNodeModelBase` | 节点/边/链接下游模型基类 | 原版 `TaskModel(nn.Module)` |
+| `pygfm.public.model_bases.GFMDownPromptGraphModelBase` | 图下游模型基类 | 原版 `TaskModel(nn.Module)` |
+
+**与 GIT 原版异同**：
+- 原版单个 `TaskModel(nn.Module)` → 本版两个模型继承不同 pygfm 基类
+- `gfm_family = "git"`，`gfm_stage` 分别为 `downprompt_node` / `downprompt_graph`
+- 保留 `einops.rearrange`（用户已安装）
+- `torch_scatter.scatter_mean` → 纯 PyTorch for-loop（该包需 C++ 编译器，当前环境不可用）
+- 保留 `distance_metric`、`l2norm`、`get_prototypes`、`proto_classify` 核心逻辑
+- 保留 `classify()`、`encode()`、`encode_graph()`、`pooling_lin()` 接口
+- 放弃原版 `compute_multitask_loss`（未使用，且与 task/graph.py 中实现重复）
+
 ### Step 6 — Pretrain Entry + Loader + Split
 
 | pygfm 模块 | 用途 | 替代了 GIT 原版什么 |
