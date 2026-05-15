@@ -21,7 +21,7 @@ from pygfm.public.utils import set_seed
 from data.pretrain_data import unified_data
 from model.encoder import GITEncoder
 from model.decoders import InnerProductDecoder
-from model.git_pretrain import GITPrePromptModel
+from model.pretrain_model import GITPrePromptModel
 from utils.utils import get_scheduler, get_device_from_model, check_path
 from utils.args import get_args_pretrain
 from utils.loader import get_pt_loader

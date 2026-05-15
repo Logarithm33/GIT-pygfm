@@ -24,7 +24,7 @@ from pygfm.public.utils import set_seed
 from data.finetune_data import get_data
 from data.pretrain_data import domain2task, dataset2domain
 from model.encoder import GITEncoder
-from model.git_downstream import GITDownPromptNodeModel, GITDownPromptGraphModel
+from model.finetune_model import GITDownPromptNodeModel, GITDownPromptGraphModel
 from utils.utils import load_params, mask2idx, check_path
 from utils.args import get_args_finetune
 from utils.early_stop import EarlyStopping
