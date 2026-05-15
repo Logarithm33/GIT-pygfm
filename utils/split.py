@@ -45,7 +45,17 @@ def base_split(data, params):
             val_masks = [data.val_mask] * params['repeat']
             test_masks = [data.test_mask] * params['repeat']
         else:
-            raise ValueError("Data does not have masks")
+            # No pre-defined masks — generate random stratified split
+            print("No masks found, generating random split")
+            labels = data.y.squeeze()
+            train_masks, val_masks, test_masks = [], [], []
+            for seed in range(params['repeat']):
+                train_mask, val_mask, test_mask = random_stratified_split(
+                    labels, train_ratio=0.6, val_ratio=0.2, seed=seed
+                )
+                train_masks.append(train_mask)
+                val_masks.append(val_mask)
+                test_masks.append(test_mask)
 
         return [{
             'train': train_masks[i],
@@ -72,7 +82,17 @@ def base_split(data, params):
             val_masks = [data.val_mask] * params['repeat']
             test_masks = [data.test_mask] * params['repeat']
         else:
-            raise ValueError("Data does not have masks")
+            # No pre-defined masks — generate random stratified split
+            print("No masks found, generating random split")
+            labels = data.y.squeeze()
+            train_masks, val_masks, test_masks = [], [], []
+            for seed in range(params['repeat']):
+                train_mask, val_mask, test_mask = random_stratified_split(
+                    labels, train_ratio=0.6, val_ratio=0.2, seed=seed
+                )
+                train_masks.append(train_mask)
+                val_masks.append(val_mask)
+                test_masks.append(test_mask)
 
         return [{
             'train': train_masks[i],
@@ -277,6 +297,25 @@ def to_link_pred(data):
     if not is_undirected(data.edge_index):
         data = ToUndirected()(data)
     return RandomLinkSplit(num_val=0.1, num_test=0.2, is_undirected=True)(data)
+
+
+def random_stratified_split(labels, train_ratio=0.6, val_ratio=0.2, seed=0):
+    """Generate stratified train/val/test masks by randomly splitting each class."""
+    rng = np.random.RandomState(seed)
+    num_nodes = len(labels)
+    train_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    val_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    test_mask = torch.zeros(num_nodes, dtype=torch.bool)
+    labels_np = labels.cpu().numpy() if isinstance(labels, torch.Tensor) else labels
+    for c in np.unique(labels_np):
+        idx = np.where(labels_np == c)[0]
+        rng.shuffle(idx)
+        n_train = int(len(idx) * train_ratio)
+        n_val = int(len(idx) * val_ratio)
+        train_mask[idx[:n_train]] = True
+        val_mask[idx[n_train:n_train + n_val]] = True
+        test_mask[idx[n_train + n_val:]] = True
+    return train_mask, val_mask, test_mask
 
 
 def get_shared_labels(train, val, test, n_shot, n_query):

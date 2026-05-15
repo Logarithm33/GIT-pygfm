@@ -101,6 +101,12 @@ def run(params):
     finetune = get_ft(params)
     evaluate = get_eval(params)
 
+    # Auto-detect input_dim from data if using default (LLM features = 768, raw features vary)
+    actual_dim = graph.node_text_feat.shape[1]
+    if params["input_dim"] == 768 and actual_dim != 768:
+        print(f"Auto-detected input_dim: {actual_dim} (was {params['input_dim']})")
+        params["input_dim"] = actual_dim
+
     encoder = GITEncoder(
         input_dim=params["input_dim"],
         hidden_dim=params["hidden_dim"],

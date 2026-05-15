@@ -13,7 +13,7 @@ from utils.utils import idx2mask
 # ── Dataset registries ──────────────────────────────────────────────
 
 citation_datasets = ['arxiv', 'cora', 'citeseer', 'pubmed', 'arxiv23', 'dblp']
-ecommerce_datasets = ['bookhis', 'bookchild', 'elecomp', 'elephoto', 'sportsfit', 'amazonratings', 'products']
+ecommerce_datasets = ['bookhis', 'bookchild', 'elecomp', 'elephoto', 'sportsfit', 'amazonratings', 'products', 'photo', 'computers']
 molecule_datasets = ['chemblpre', 'chempcba', 'chemhiv', 'bbbp', 'bace', 'toxcast', 'cyp450', 'tox21', 'muv']
 kg_datasets = ['WN18RR', 'FB15K237', 'codex_s', 'codex_m', 'codex_l', 'NELL995', 'GDELT', 'ICEWS1819']
 temporal_datasets = ['Enron', 'Googlemap_CT']
@@ -64,7 +64,7 @@ def single_graph(params):
 
     path = osp.join(data_dir, dataset_name, 'processed', 'geometric_data_processed.pt')
 
-    data = torch.load(path)[0]
+    data = torch.load(path, weights_only=False)[0]
     data = ToUndirected()(data)
     data.name = dataset_name
 
@@ -104,7 +104,7 @@ def kg_graph(params):
     assert dataset_name in kg_datasets
     path = osp.join(data_dir, dataset_name, 'processed', 'geometric_data_processed.pt')
 
-    data = torch.load(path)[0]
+    data = torch.load(path, weights_only=False)[0]
     data.name = dataset_name
     data.raw_texts = None
 

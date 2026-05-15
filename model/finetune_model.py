@@ -1,14 +1,5 @@
-"""
-GIT Downstream Models — inherit ``GFMDownPromptNodeModelBase`` /
-``GFMDownPromptGraphModelBase`` from pygfm.
-
-Provides prototype-based few-shot / zero-shot classification alongside
-standard linear classification.
-
-Based on GIT-main ``model/finetune_model.py``, with ``einops.rearrange``
-preserved.  ``torch_scatter.scatter_mean`` is replaced by a pure-PyTorch
-loop (torch_scatter requires a C++ compiler unavailable in this env).
-"""
+"""GIT Downstream Models — inherit ``GFMDownPromptNodeModelBase`` /
+``GFMDownPromptGraphModelBase`` from pygfm."""
 
 from typing import ClassVar
 
@@ -17,6 +8,7 @@ import torch
 from einops import rearrange
 from torch import nn
 from torch.nn import functional as F
+from torch_scatter import scatter_mean
 
 from pygfm.public.model_bases import (
     GFMDownPromptNodeModelBase,
@@ -52,42 +44,37 @@ def distance_metric(m1, m2, cosine_sim=True):
 
 
 def get_prototypes(z, y, num_classes, head_first=True):
-    """Compute per-class mean embeddings.
+    # Embeddings (z) shape: [n, d] or [n, h, d] or [r, n, h, d]
+    # Classes shape: [n] or [r, n]
+    # return_head_first: if True, the first dimension of the output will be the heads, otherwise it will be the classes
 
-    Equivalent to GIT original, but uses a pure-PyTorch loop instead of
-    ``torch_scatter.scatter_mean`` (unavailable without C++ compiler).
-
-    Parameters
-    ----------
-    z: Tensor  — ``[n, d]`` or ``[n, h, d]``
-    y: Tensor  — ``[n]``
-    num_classes: int
-    head_first: bool
-    """
     z = l2norm(z)
 
     ndim = z.ndim
-    assert ndim in (2, 3), f"Expected z.ndim in (2,3), got {ndim}"
+    assert ndim in [2, 3, 4]
 
+    if ndim == 4:
+        num_runs = z.shape[0]
+    else:
+        num_runs = 1
+
+    # Rearrange the embeddings as [run, head, num_nodes, dim]
+    # classes as [run, num_nodes]
     if ndim == 2:
         z = rearrange(z, "n d -> 1 1 n d")
         y = rearrange(y, "n -> 1 n")
     elif ndim == 3:
         z = rearrange(z, "n h d -> 1 h n d")
         y = rearrange(y, "n -> 1 n")
+    elif ndim == 4:
+        z = rearrange(z, "r n h d -> r h n d")
 
-    # z: [r, h, n, d], y: [r, n]
-    r, h, n, d = z.shape
+    # Compute the class prototypes for each run.
+    class_prototypes = []
+    for i in range(num_runs):
+        class_prototypes.append(scatter_mean(z[i], y[i], dim=1, dim_size=num_classes))
+    class_prototypes = torch.stack(class_prototypes, dim=0)  # [r, h, c, d]
 
-    # Pure-PyTorch scatter_mean replacement
-    class_prototypes = torch.zeros(r, h, num_classes, d, device=z.device, dtype=z.dtype)
-    for ri in range(r):
-        for ci in range(num_classes):
-            mask = (y[ri] == ci)
-            if mask.any():
-                class_prototypes[ri, :, ci, :] = z[ri, :, mask, :].mean(dim=1)
-
-    # Rearrange output
     if ndim == 2:
         class_prototypes = rearrange(class_prototypes, "1 1 c d -> c d")
     elif ndim == 3:
@@ -100,6 +87,8 @@ def get_prototypes(z, y, num_classes, head_first=True):
             return rearrange(class_prototypes, 'c d -> c 1 d')
         if ndim == 3:
             return rearrange(class_prototypes, "h c d -> c h d")
+        elif ndim == 4:
+            return rearrange(class_prototypes, "r h c d -> r c h d")
 
 
 # ── Downstream Models ────────────────────────────────────────────────
@@ -149,13 +138,16 @@ class GITDownPromptNodeModel(GFMDownPromptNodeModelBase):
         ndim_query = query_emb.ndim
         ndim_proto = proto_emb.ndim
 
-        assert ndim_query in (2, 3)
-        assert ndim_proto in (2, 3)
+        assert ndim_query in [2, 3]
+        assert ndim_proto in [2, 3, 4]
 
         if ndim_query == 2:
             query_emb = rearrange(query_emb, "n d -> n 1 d")
         if ndim_proto == 2:
             proto_emb = rearrange(proto_emb, "c d -> c 1 d")
+        if ndim_proto == 4:
+            n_task = proto_emb.shape[0]
+            proto_emb = rearrange(proto_emb, "t c h d -> (t c) h d")
 
         query_emb = rearrange(query_emb, "n h d -> h n d")
         proto_emb = rearrange(proto_emb, "c h d -> h c d")
@@ -164,13 +156,16 @@ class GITDownPromptNodeModel(GFMDownPromptNodeModelBase):
         proto_heads = proto_emb.shape[0]
         num_heads = max(query_heads, proto_heads)
 
-        total_logits = 0.0
+        total_logits = 0
         for h in range(num_heads):
             query_emb_iter = query_emb[0] if query_heads == 1 else query_emb[h]
             proto_emb_iter = proto_emb[0] if proto_heads == 1 else proto_emb[h]
 
             logits = distance_metric(query_emb_iter, proto_emb_iter)
-            total_logits = total_logits + logits
+            if task == 'multi':
+                logits = rearrange(logits, "n (t c) -> n t c", t=n_task, c=2)
+                logits = logits[:, :, 0] - logits[:, :, 1]
+            total_logits += logits
 
         total_logits = total_logits / num_heads
 
@@ -213,8 +208,14 @@ class GITDownPromptGraphModel(GFMDownPromptGraphModelBase):
         return get_prototypes(z, y, num_classes, head_first=head_first)
 
     def proto_classify(self, query_emb, proto_emb, task='single'):
+        # query_emb in [n, d] or [n, h, d]
+        # proto_emb in [c, d] or [c, h, d]
+
         ndim_query = query_emb.ndim
         ndim_proto = proto_emb.ndim
+
+        assert ndim_query in [2, 3]
+        assert ndim_proto in [2, 3, 4]
 
         if ndim_query == 2:
             query_emb = rearrange(query_emb, "n d -> n 1 d")
@@ -231,16 +232,16 @@ class GITDownPromptGraphModel(GFMDownPromptGraphModelBase):
         proto_heads = proto_emb.shape[0]
         num_heads = max(query_heads, proto_heads)
 
-        total_logits = 0.0
+        total_logits = 0
         for h in range(num_heads):
             query_emb_iter = query_emb[0] if query_heads == 1 else query_emb[h]
             proto_emb_iter = proto_emb[0] if proto_heads == 1 else proto_emb[h]
 
             logits = distance_metric(query_emb_iter, proto_emb_iter)
-            if task == 'multi' and ndim_proto == 4:
+            if task == 'multi':
                 logits = rearrange(logits, "n (t c) -> n t c", t=n_task, c=2)
                 logits = logits[:, :, 0] - logits[:, :, 1]
-            total_logits = total_logits + logits
+            total_logits += logits
 
         total_logits = total_logits / num_heads
 

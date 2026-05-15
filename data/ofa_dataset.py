@@ -52,7 +52,7 @@ class OFAPygDataset(InMemoryDataset, ABC):
         if load_text:
             self.texts = torch.load(self.processed_paths[1])
 
-        self.data, self.slices = torch.load(self.processed_paths[0])
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
         self.side_data = pth_safe_load(self.processed_paths[2])
 
     def data2vec(self, data: list[str]) -> torch.Tensor:
