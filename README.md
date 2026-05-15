@@ -43,6 +43,19 @@
 - OFA 数据集格式（去重文本嵌入+按索引查找）为项目特有逻辑
 - 可选用 pygfm `BertTextEncoder` 做备用文本编码，但缓存数据已含预计算嵌入
 
+### Step 8 — Task Training / Eval Functions
+
+| pygfm 模块 | 用途 |
+|-----------|------|
+| _本步未直接使用 pygfm_ | task 函数为 GIT 训练/评估逻辑，与模型框架无关 |
+
+**与 GIT 原版异同**：
+- 四个文件 (`node.py` / `edge.py` / `link_pred.py` / `graph.py`) 从 GIT-main 搬运，逻辑完全一致
+- `task/edge.py` 的 `temporal_datasets` 导入路径从 `data.pretrain_data` 获取（已在 pretrain_data 中从 finetune_data 导入）
+- SFT 函数 (`sft_node` / `sft_edge` / `sft_graph`) 使用 MSE loss 对齐类别文本嵌入
+- Fine-tune 函数 (`ft_node` / `ft_edge` / `ft_link_pred` / `ft_graph`) 使用 CE/BCE/Multi-task BCE
+- Eval 函数支持 base / few_shot / zero_shot / in_context 四种范式
+
 ### Step 7 — Downstream Models (GITDownPrompt)
 
 | pygfm 模块 | 用途 | 替代了 GIT 原版什么 |
@@ -149,11 +162,11 @@
 | `data/finetune_data.py` | 搬运自 `GIT-main/data/finetune_data.py` | `get_snapshot()` 中 `int()` 改为 `.item()`（适配新版 PyG 类型检查）；删除顶层 `import pandas as pd`，改为 `temporal_graph()` 内惰性导入 |
 | `data/ofa_dataset.py` | 搬运自 `GIT-main/data/ofa_dataset.py` | 删除未使用的 `Optional`、`Tuple`、`List` 导入 |
 | `data/pretrain_data.py` | 搬运自 `GIT-main/data/pretrain_data.py` | 删除未使用的 `os`、`math`、`pandas`、`random`、`NormalizeFeatures`、`RemoveIsolatedNodes` 导入；`groups.max()` → `groups.max().item()`；新增模块和类的 docstring |
-| `task/__init__.py` | **新编**（待创建） | — |
-| `task/node.py` | **新编**（待创建） | — |
-| `task/edge.py` | **新编**（待创建） | — |
-| `task/link_pred.py` | **新编**（待创建） | — |
-| `task/graph.py` | **新编**（待创建） | — |
+| `task/__init__.py` | **新编** | — |
+| `task/node.py` | 搬运自 `GIT-main/task/node.py` | 导入路径调整为本项目；`sft_node` 中 `class_node_text_feat` 索引处理保留原版逻辑 |
+| `task/edge.py` | 搬运自 `GIT-main/task/edge.py` | `temporal_datasets` 从 `data.pretrain_data` 导入 |
+| `task/link_pred.py` | 搬运自 `GIT-main/task/link_pred.py` | 提取 `predict` 函数；`negative_sampling` 参数换行 |
+| `task/graph.py` | 搬运自 `GIT-main/task/graph.py` | `multitask_cross_entropy` 保留；`eval_graph_few_shot` 长行拆分 |
 | `pretrain.py` | **新编**（待创建） | — |
 | `sft.py` | **新编**（待创建） | — |
 | `finetune.py` | **新编**（待创建） | — |
