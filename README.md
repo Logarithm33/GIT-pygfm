@@ -43,6 +43,21 @@
 - OFA 数据集格式（去重文本嵌入+按索引查找）为项目特有逻辑
 - 可选用 pygfm `BertTextEncoder` 做备用文本编码，但缓存数据已含预计算嵌入
 
+### Step 10 — Finetune Entry Point
+
+| pygfm 模块 | 用途 | 替代了 GIT 原版什么 |
+|-----------|------|-------------------|
+| `pygfm.public.utils.set_seed` | 全局随机种子 | 原版 `seed_everything()` |
+
+**与 GIT 原版异同**：
+- `Encoder` → `GITEncoder`、`TaskModel` → `GITDownPromptNodeModel` / `GITDownPromptGraphModel`（按 task 自动选择）
+- `seed_everything()` → `pygfm.public.utils.set_seed()`
+- `wandb` 改为可选导入
+- `yaml` 改为惰性导入（`use_params` 路径），缺失时降级运行
+- `check_path` 调用修正位置（原版在路径构造前调用，当模型不存在时路径未创建会导致错误）
+- 移除未使用的 import（`numpy`, `shutil`, `F`, `mask_feature`, `negative_sampling`, `dropout_adj` 等）
+- 4 种 setting 全支持：base / few_shot / zero_shot / in_context / base_zero_shot
+
 ### Step 9 — SFT Entry Point
 
 | pygfm 模块 | 用途 | 替代了 GIT 原版什么 |
@@ -181,9 +196,9 @@
 | `task/edge.py` | 搬运自 `GIT-main/task/edge.py` | `temporal_datasets` 从 `data.pretrain_data` 导入 |
 | `task/link_pred.py` | 搬运自 `GIT-main/task/link_pred.py` | 提取 `predict` 函数；`negative_sampling` 参数换行 |
 | `task/graph.py` | 搬运自 `GIT-main/task/graph.py` | `multitask_cross_entropy` 保留；`eval_graph_few_shot` 长行拆分 |
-| `pretrain.py` | **新编**（待创建） | — |
-| `sft.py` | **新编**（待创建） | — |
-| `finetune.py` | **新编**（待创建） | — |
+| `pretrain.py` | 搬运改写自 `GIT-main/pretrain.py` | `Encoder` → `GITEncoder`；`PretrainModel` → `GITPrePromptModel`；`seed_everything` → `pygfm.set_seed`；wandb 可选导入；`dropout_adj` → `dropout_edge` |
+| `sft.py` | 搬运改写自 `GIT-main/sft.py` | `Encoder` → `GITEncoder`；`seed_everything` → `pygfm.set_seed`；wandb 可选导入；修复原版缩进语法错误 |
+| `finetune.py` | 搬运改写自 `GIT-main/finetune.py` | `Encoder` → `GITEncoder`；`TaskModel` → `GITDownPromptNodeModel`/`GraphModel`；`seed_everything` → `pygfm.set_seed`；wandb 可选导入；yaml 惰性导入 |
 | `tests/test_step1_utils.py` | **新编** | — |
 | `tests/test_step2_model.py` | **新编** | — |
 | `tests/test_step3_data.py` | **新编** | — |
@@ -196,9 +211,9 @@
 |------|------|------|
 | 复制（无修改） | 5 | 4 个 YAML + `args.py` + `logger.py` |
 | 搬运（少量修改） | 5 | `eval.py`、`utils.py`、`finetune_data.py`、`ofa_dataset.py`、`pretrain_data.py` |
-| 混合（搬运+改写） | 4 | `early_stop.py`、`encoder.py`、`decoders.py`、`git_pretrain.py` |
-| 新编 | 7 | `.gitignore`、`README.md`、3 个 `__init__.py`、5 个测试文件 |
-| 待创建 | 9 | `task/` (4)、入口 (3)、`data/__init__`、`task/__init__` |
+| 混合（搬运+改写） | 7 | `early_stop.py`、`encoder.py`、`decoders.py`、`git_pretrain.py`、`pretrain.py`、`sft.py`、`finetune.py` |
+| 新编 | 7 | `.gitignore`、`README.md`、5 个 `__init__.py`、5 个测试文件 |
+| 待创建 | 0 | — |
 
 ## 项目结构
 
@@ -207,10 +222,7 @@ main/
 ├── README.md
 ├── __init__.py
 ├── .gitignore
-├── pretrain.py                  (待创建)
-├── sft.py                       (待创建)
-├── finetune.py                  (待创建)
-├── utils/
+├── pretrain.py                 ├── sft.py                      ├── finetune.py                 ├── utils/
 │   ├── __init__.py
 │   ├── args.py
 │   ├── eval.py
@@ -222,14 +234,12 @@ main/
 │   ├── encoder.py
 │   ├── decoders.py
 │   ├── git_pretrain.py
-│   └── git_downstream.py        (待创建)
-├── data/
+│   └── git_downstream.py       ├── data/
 │   ├── __init__.py
 │   ├── finetune_data.py
 │   ├── ofa_dataset.py
 │   └── pretrain_data.py
-├── task/                         (待创建)
-│   ├── __init__.py
+├── task/                        │   ├── __init__.py
 │   ├── node.py
 │   ├── edge.py
 │   ├── link_pred.py
