@@ -43,6 +43,20 @@
 - OFA 数据集格式（去重文本嵌入+按索引查找）为项目特有逻辑
 - 可选用 pygfm `BertTextEncoder` 做备用文本编码，但缓存数据已含预计算嵌入
 
+### Step 9 — SFT Entry Point
+
+| pygfm 模块 | 用途 | 替代了 GIT 原版什么 |
+|-----------|------|-------------------|
+| `pygfm.public.utils.set_seed` | 全局随机种子 | 原版 `seed_everything()` |
+
+**与 GIT 原版异同**：
+- `Encoder` → `GITEncoder`（使用 pygfm backbone）
+- `wandb` 改为可选导入
+- 修复原版 `if task == "graph": params['bs'] = 4096` 的缩进语法错误
+- 移除原版 `use_params` 加载 `sft_param.yaml`（该文件不存在）
+- 移除未使用的 import（`numpy`, `yaml`, `deepcopy`, `negative_sampling` 等）
+- `pretrain_dataset == 'na'` 时跳过预训练权重加载，使用随机初始化
+
 ### Step 8 — Task Training / Eval Functions
 
 | pygfm 模块 | 用途 |
